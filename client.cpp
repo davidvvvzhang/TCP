@@ -2,9 +2,6 @@
 
 #include <iostream>
 #include <cstring>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <unistd.h>
 
 #ifdef _WIN32
     #include <winsock2.h>
