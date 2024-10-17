@@ -6,10 +6,29 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 
+#ifdef _WIN32
+    #include <winsock2.h>
+    #pragma comment(lib, "ws2_32.lib")
+    #define close closesocket
+    #define inet_pton(a, b, c) (*(c) = inet_addr(b))  // 使用inet_addr替代inet_pton
+#else
+    #include <sys/socket.h>
+    #include <arpa/inet.h>
+    #include <unistd.h>
+#endif
+
 #define PORT 8888
 #define BUFFER_SIZE 1024
 
 int main() {
+#ifdef _WIN32
+    WSADATA wsaData;
+    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+        std::cerr << "WSAStartup failed" << std::endl;
+        return -1;
+    }
+#endif
+    
     int sock = 0; // 客户端的套接字描述符，用于创建套接字
     struct sockaddr_in serv_addr; // 定义服务器地址的结构体，存储服务器的IP地址和端口号
     char buffer[BUFFER_SIZE] = {0}; // 用于存储服务器返回的数据
@@ -27,10 +46,18 @@ int main() {
 
     // 将服务器地址转换为二进制形式
     // inet_pton()：将点分十进制的IP地址（例如"127.0.0.1"）转换为二进制的网络字节序，便于进行网络传输
+#ifdef _WIN32
+    serv_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    if (serv_addr.sin_addr.s_addr == INADDR_NONE) {
+        std::cerr << "Invalid address" << std::endl;
+        return -1;
+    }
+#else
     if (inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr) <= 0) {
         std::cerr << "Invalid address" << std::endl;
         return -1;
     }
+#endif
 
     // 连接服务器
     // connect()：连接服务器，sock是客户端的套接字，serv_addr是服务器的地址结构体。返回值小于0表示连接失败
@@ -65,5 +92,10 @@ int main() {
 
     // 关闭套接字
     close(sock);
+    
+#ifdef _WIN32
+    WSACleanup();
+#endif
+    
     return 0;
 }
