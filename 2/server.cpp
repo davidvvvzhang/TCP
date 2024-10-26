@@ -5,19 +5,19 @@
 #include <vector>
 #include <map>
 #include <set>
-#include <fstream>
 #include <algorithm>
-#include <string>
+#include <fstream>
 
-#ifdef _WIN32  // Windows
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#pragma comment(lib, "Ws2_32.lib")
-#define close closesocket
-#else  // Linux/Mac
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <unistd.h>
+#ifdef _WIN32
+    #include <winsock2.h>
+    #include <ws2tcpip.h>
+    #pragma comment(lib, "ws2_32.lib")
+    #define CLOSE_SOCKET closesocket
+#else
+    #include <sys/socket.h>
+    #include <arpa/inet.h>
+    #include <unistd.h>
+    #define CLOSE_SOCKET close
 #endif
 
 #define PORT 8888
@@ -65,7 +65,7 @@ void handle_client(int client_socket) {
 
     std::string welcome_msg = "欢迎, " + username + "!";
     send(client_socket, welcome_msg.c_str(), welcome_msg.length(), 0);
-    
+
     // 发送功能提示
     std::string prompt_msg = "功能提示：\n";
     prompt_msg += "1. 输入 '@用户名: 消息' 发送私聊消息\n";
@@ -80,7 +80,6 @@ void handle_client(int client_socket) {
     }
     send(client_socket, prompt_msg.c_str(), prompt_msg.length(), 0);
 
-    // 广播在线用户列表
     std::string online_users = "当前在线用户: ";
     for (const auto& user : user_sockets) {
         online_users += user.first + " ";
@@ -94,14 +93,14 @@ void handle_client(int client_socket) {
         valread = recv(client_socket, buffer, BUFFER_SIZE, 0);
         if (valread <= 0) {
             std::cout << username << " 断开连接" << std::endl;
-            close(client_socket);
+            CLOSE_SOCKET(client_socket);
             user_sockets.erase(username);
             break;
         }
 
         std::string message = buffer;
         message = message.substr(0, message.find('\n'));  // 去除换行符
-        
+
         // 文件传输功能
         if (message.substr(0, 10) == "/sendfile ") {
             std::string filename = message.substr(10);
@@ -247,38 +246,38 @@ void handle_client(int client_socket) {
         else if (message == "exit") {
             std::string exit_msg = username + " 退出了聊天";
             send(client_socket, exit_msg.c_str(), exit_msg.length(), 0);
-            close(client_socket);
+            CLOSE_SOCKET(client_socket);
             user_sockets.erase(username);
             break;
         }
     }
 }
 
+
 int main() {
-#ifdef _WIN32
-    WSADATA wsa;
-    if (WSAStartup(MAKEWORD(2,2),&wsa) != 0) {
-        std::cerr << "WSAStartup failed" << std::endl;
-        return 1;
-    }
-#endif
+    #ifdef _WIN32
+        WSADATA wsaData;
+        int result = WSAStartup(MAKEWORD(2, 2), &wsaData);
+        if (result != 0) {
+            std::cerr << "WSAStartup failed: " << result << std::endl;
+            return -1;
+        }
+    #endif
 
     int server_fd, new_socket;
     struct sockaddr_in address;
     int opt = 1;
     int addrlen = sizeof(address);
 
-    // 创建套接字
     server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd == 0) {
         std::cerr << "Socket creation failed" << std::endl;
         return -1;
     }
 
-    // 绑定端口
-    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, (char*)&opt, sizeof(opt)) < 0) {
-        std::cerr << "Setsockopt SO_REUSEADDR failed" << std::endl;
-        exit(EXIT_FAILURE);
+    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt)) < 0) {
+        std::cerr << "Setsockopt failed" << std::endl;
+        return -1;
     }
 
     address.sin_family = AF_INET;
@@ -290,7 +289,6 @@ int main() {
         return -1;
     }
 
-    // 侦听
     if (listen(server_fd, 3) < 0) {
         std::cerr << "Listen failed" << std::endl;
         return -1;
@@ -306,12 +304,13 @@ int main() {
         }
 
         std::thread client_thread(handle_client, new_socket);
-        client_thread.detach();  // 分离线程
+        client_thread.detach();
     }
 
-#ifdef _WIN32
-    WSACleanup();
-#endif
+    #ifdef _WIN32
+        WSACleanup();
+    #endif
 
     return 0;
 }
+
