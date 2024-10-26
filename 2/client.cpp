@@ -3,7 +3,6 @@
 #include <thread>
 #include <fstream>
 #include <algorithm>
-#include <string>
 
 #ifdef _WIN32
     #include <winsock2.h>
@@ -27,11 +26,10 @@ void receive_messages(int sock) {
         memset(buffer, 0, BUFFER_SIZE);
         long valread = recv(sock, buffer, BUFFER_SIZE, 0);
         if (valread > 0) {
-            buffer[valread] = '\0';  // 确保消息以 \0 结束
+            buffer[valread] = '\0';
             std::string message(buffer);
-            std::cout << message << std::endl;  // 打印接收到的消息
-            
-            // 处理被管理员踢出情况
+            std::cout << message << std::endl;
+
             if (message.find("你已被管理员踢出") != std::string::npos) {
                 std::cout << "你已被踢出服务器。" << std::endl;
                 #ifdef _WIN32
@@ -57,15 +55,11 @@ void handle_commands(int socket) {
     std::string command;
 
     while (true) {
-        std::getline(std::cin, command); // 读取用户输入
+        std::getline(std::cin, command);
 
         if (command.substr(0, 10) == "/sendfile ") {
-            std::string filename = command.substr(10); // 提取文件名
-
-            // 将文件命令发送给服务器
+            std::string filename = command.substr(10);
             send(socket, command.c_str(), command.length(), 0);
-
-            // 调用 receive_file 接收文件
             receive_file(socket, filename);
         }
 
@@ -104,9 +98,9 @@ void receive_file(int socket, const std::string& filename) {
 
 int main() {
     #ifdef _WIN32
-        WSADATA wsa;
-        if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
-            std::cerr << "Winsock 初始化失败" << std::endl;
+        WSADATA wsaData;
+        if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+            std::cerr << "WSAStartup failed." << std::endl;
             return -1;
         }
     #endif
@@ -116,7 +110,7 @@ int main() {
     char buffer[BUFFER_SIZE] = {0};
 
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-        std::cerr << "Socket 创建失败" << std::endl;
+        std::cerr << "Socket creation failed" << std::endl;
         return -1;
     }
 
@@ -124,12 +118,12 @@ int main() {
     serv_addr.sin_port = htons(PORT);
 
     if (inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr) <= 0) {
-        std::cerr << "无效的地址" << std::endl;
+        std::cerr << "Invalid address" << std::endl;
         return -1;
     }
 
     if (connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) {
-        std::cerr << "连接失败" << std::endl;
+        std::cerr << "Connection failed" << std::endl;
         return -1;
     }
 
@@ -192,3 +186,4 @@ int main() {
 
     return 0;
 }
+
